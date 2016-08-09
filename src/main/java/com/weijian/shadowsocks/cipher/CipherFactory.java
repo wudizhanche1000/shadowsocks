@@ -12,7 +12,7 @@ public class CipherFactory {
 
     private final static String INIT_CIPHER_METHOD = "initCipher";
 
-    private static class CipherInfo {
+    public static class CipherInfo {
         private int keySize;
         private int ivSize;
 
@@ -43,6 +43,10 @@ public class CipherFactory {
         ciphers.put("aes-128-cfb", new CipherInfo(16, 16, OpensslCipher.class));
         ciphers.put("aes-192-cfb", new CipherInfo(24, 16, OpensslCipher.class));
         ciphers.put("aes-256-cfb", new CipherInfo(32, 16, OpensslCipher.class));
+    }
+
+    public static CipherInfo getCipherInfo(String algorithm) {
+        return ciphers.get(algorithm);
     }
 
     public static Cipher getCipher(String algorithm) throws Exception {

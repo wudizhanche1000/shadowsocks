@@ -60,6 +60,8 @@ public class OpensslCipher implements Cipher {
         if (this.pCipher == 0) {
             throw new Exception("Cipher invalid");
         }
+        this.key = key;
+        this.iv = iv;
         pContext = init(mode, pCipher, key, iv);
         if (pContext == 0) {
             throw new Exception("Cipher initialize failed");

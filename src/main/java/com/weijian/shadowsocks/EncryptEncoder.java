@@ -7,22 +7,27 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
 
+import java.security.SecureRandom;
+
 
 /**
  * Created by weijian on 16-8-4.
  */
 public class EncryptEncoder extends ChannelOutboundHandlerAdapter {
     private final Configuration configuration;
-    private boolean firstResponse = true;
-    private final byte[] IV;
     private final byte[] key;
+    private boolean firstResponse = true;
     private Cipher cipher = null;
 
-    public EncryptEncoder(Configuration configuration, byte[] iv, byte[] key) throws Exception {
+    public EncryptEncoder(Configuration configuration, byte[] key) throws Exception {
         this.configuration = configuration;
-        IV = iv;
         this.key = key;
         cipher = CipherFactory.getCipher(configuration.getMethod());
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        super.exceptionCaught(ctx, cause);
     }
 
     @Override
@@ -31,13 +36,18 @@ public class EncryptEncoder extends ChannelOutboundHandlerAdapter {
         ByteBuf response = (ByteBuf) msg;
         byte[] data = new byte[response.readableBytes()];
         response.readBytes(data);
+        System.out.println(data.length);
+        System.out.println(new String(data));
         response.clear();
         if (firstResponse) {
-            cipher.init(Cipher.ENCRYPT, key, IV);
-            response.writeBytes(IV);
+            byte[] iv = new byte[16];
+            SecureRandom random = new SecureRandom();
+            random.nextBytes(iv);
+            cipher.init(Cipher.ENCRYPT, key, iv);
+            response.writeBytes(iv);
             firstResponse = false;
         }
         response.writeBytes(cipher.update(data));
-        ctx.writeAndFlush(response, promise);
+        ctx.writeAndFlush(response);
     }
 }

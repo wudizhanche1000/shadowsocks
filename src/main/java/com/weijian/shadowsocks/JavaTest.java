@@ -2,6 +2,7 @@ package com.weijian.shadowsocks;
 
 import com.weijian.shadowsocks.cipher.Cipher;
 import com.weijian.shadowsocks.cipher.CipherFactory;
+import org.apache.commons.codec.binary.Hex;
 
 import javax.crypto.spec.SecretKeySpec;
 
@@ -27,6 +28,8 @@ public class JavaTest {
             Cipher e = CipherFactory.getCipher("aes-128-cfb");
             e.init(Cipher.DECRYPT, keySpec.getEncoded(), iv);
             byte[] b = e.update("123456789".getBytes());
+
+            System.out.println(Hex.encodeHexString(b));
 //            for (byte i : b) {
 //                System.out.printf("%02x ", i);
 //            }

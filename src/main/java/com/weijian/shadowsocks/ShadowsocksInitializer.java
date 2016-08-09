@@ -18,7 +18,7 @@ public class ShadowsocksInitializer extends ChannelInitializer<SocketChannel> {
     protected void initChannel(SocketChannel ch) throws Exception {
         ch.pipeline().addLast(
                 new DecryptDecoder(configuration),
-                new ShadowsocksFrontendHandler()
+                new ShadowsocksFrontendHandler(configuration)
         );
     }
 

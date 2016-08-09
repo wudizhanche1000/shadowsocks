@@ -6,6 +6,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 
@@ -17,17 +18,17 @@ public class ShadowsocksFrontendHandler extends ChannelInboundHandlerAdapter {
     private Logger logger = LogManager.getLogger();
     private Channel outboundChannel;
 
-    @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+    private final Configuration configuration;
 
+    public ShadowsocksFrontendHandler(Configuration configuration) {
+        this.configuration = configuration;
     }
-
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (firstRequest) {
             Channel inboundChannel = ctx.channel();
-            ByteBuf request = Unpooled.wrappedBuffer((byte[]) msg);
+            final ByteBuf request = Unpooled.wrappedBuffer((byte[]) msg);
             InetSocketAddress address;
             byte type = request.readByte();
             String hostname = "";
@@ -53,19 +54,18 @@ public class ShadowsocksFrontendHandler extends ChannelInboundHandlerAdapter {
             Bootstrap bootstrap = new Bootstrap();
             bootstrap.group(inboundChannel.eventLoop())
                     .channel(inboundChannel.getClass())
-                    .handler(new ShadowsocksBackendHandler(inboundChannel));
-            ChannelFuture future = bootstrap.connect(address).addListener(new ChannelFutureListener() {
-                @Override
-                public void operationComplete(ChannelFuture future) throws Exception {
-                    outboundChannel.writeAndFlush(request);
-                }
+                    .handler(new ShadowsocksBackendHandler(inboundChannel, configuration));
+            ChannelFuture future = bootstrap.connect(address);
+            future.addListener((ChannelFutureListener) future1 -> {
+                outboundChannel.writeAndFlush(request);
+                ctx.read();
             });
             outboundChannel = future.channel();
-            System.out.println(hostname + ":" + port);
             firstRequest = false;
         } else {
-            if (outboundChannel.isActive())
+            if (outboundChannel.isActive()) {
                 outboundChannel.writeAndFlush(msg);
+            }
         }
     }
 }

@@ -5,7 +5,9 @@ import com.weijian.shadowsocks.cipher.CipherFactory;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
+import io.netty.util.internal.SystemPropertyUtil;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -16,6 +18,7 @@ public class DecryptDecoder extends ByteToMessageDecoder {
     private final String password;
     private final String method;
 
+    private boolean init = true;
     private Cipher cipher;
 
     public DecryptDecoder(Configuration configuration) throws Exception {
@@ -27,13 +30,16 @@ public class DecryptDecoder extends ByteToMessageDecoder {
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-        byte[] IV = new byte[16];
-        in.readBytes(IV);
         byte[] payload = new byte[in.readableBytes()];
         in.readBytes(payload);
-        byte[] key = EncryptionUtils.evpBytesToKey(configuration.getPassword(), 16);
-        ctx.channel().pipeline().addLast(new EncryptEncoder(configuration, IV, key));
-        cipher.init(Cipher.DECRYPT, key, IV);
+        if (init) {
+            byte[] iv = Arrays.copyOfRange(payload, 0, 16);
+            payload = Arrays.copyOfRange(payload, 16, payload.length);
+            byte[] key = EncryptionUtils.evpBytesToKey(configuration.getPassword(), 16);
+//            ctx.channel().pipeline().addLast(new EncryptEncoder(configuration, key));
+            cipher.init(Cipher.DECRYPT, key, iv);
+            init = false;
+        }
         byte[] result = cipher.update(payload);
         out.add(result);
     }
