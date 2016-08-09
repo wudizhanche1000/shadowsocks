@@ -6,11 +6,8 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import java.io.StringReader;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.util.Arrays;
 
 /**
  * Created by weijian on 16-8-3.

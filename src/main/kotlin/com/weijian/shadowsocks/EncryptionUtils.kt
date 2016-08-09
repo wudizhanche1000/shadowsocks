@@ -1,11 +1,13 @@
+@file:JvmName("EncryptionUtils")
+
 package com.weijian.shadowsocks
 
-import java.lang.annotation.Native
+
+/**
+ * Created by weijian on 16-8-9.
+ */
+
 import java.security.MessageDigest
-import javax.crypto.Cipher
-import javax.crypto.SecretKey
-import javax.crypto.spec.IvParameterSpec
-import javax.crypto.spec.SecretKeySpec
 
 /**
  * Created by weijian on 16-8-3.
@@ -28,10 +30,3 @@ fun evpBytesToKey(password: String, keyLen: Int): ByteArray {
     return m.sliceArray(0 until keyLen)
 }
 
-fun main(args: Array<String>) {
-    val key = evpBytesToKey("barfoo!", 16)
-    val cipher = Cipher.getInstance("AES/CFB/NoPadding")
-    val keySpec = SecretKeySpec(key, "AES")
-    val ivSpec = IvParameterSpec(key)
-
-}
