@@ -4,8 +4,11 @@ import com.weijian.shadowsocks.cipher.Cipher;
 import com.weijian.shadowsocks.cipher.CipherFactory;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.security.SecureRandom;
 
@@ -13,11 +16,16 @@ import java.security.SecureRandom;
  * Created by weijian on 16-8-4.
  */
 public class ShadowsocksBackendHandler extends ChannelInboundHandlerAdapter {
-    private Channel inboundChannel;
+    private final Channel inboundChannel;
     private Cipher cipher;
     private Configuration configuration;
-
+    private Logger logger = LogManager.getLogger();
     private boolean init = true;
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        ctx.channel().read();
+    }
 
     public ShadowsocksBackendHandler(Channel inboundChannel, Configuration configuration) throws Exception {
         this.configuration = configuration;
@@ -32,16 +40,35 @@ public class ShadowsocksBackendHandler extends ChannelInboundHandlerAdapter {
     }
 
     @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        NettyUtils.closeOnFlush(inboundChannel);
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        cause.printStackTrace();
+        NettyUtils.closeOnFlush(ctx.channel());
+    }
+
+    @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         ByteBuf response = (ByteBuf) msg;
         byte[] data = new byte[response.readableBytes()];
         response.readBytes(data);
+        response.clear();
         byte[] encrypted = cipher.update(data);
         if (init) {
             response.writeBytes(cipher.getIv());
             init = false;
         }
         response.writeBytes(encrypted);
-        inboundChannel.writeAndFlush(response);
+        inboundChannel.writeAndFlush(response).addListener((ChannelFutureListener) future -> {
+            if (future.isSuccess())
+                ctx.channel().read();
+            else {
+                future.channel().close();
+                logger.error("Connection break;");
+            }
+        });
     }
 }

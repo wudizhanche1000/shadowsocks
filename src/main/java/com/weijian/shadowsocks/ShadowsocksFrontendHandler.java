@@ -1,9 +1,11 @@
 package com.weijian.shadowsocks;
 
+import com.weijian.shadowsocks.cipher.Cipher;
+import com.weijian.shadowsocks.cipher.CipherFactory;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -15,20 +17,54 @@ import java.net.InetSocketAddress;
  */
 public class ShadowsocksFrontendHandler extends ChannelInboundHandlerAdapter {
     private boolean firstRequest = true;
-    private Logger logger = LogManager.getLogger();
-    private Channel outboundChannel;
-
+    private final Logger logger = LogManager.getLogger();
+    private volatile Channel outboundChannel;
+    private final Cipher cipher;
     private final Configuration configuration;
+    private final byte[] key;
+    private final CipherFactory.CipherInfo cipherInfo;
 
-    public ShadowsocksFrontendHandler(Configuration configuration) {
+    public ShadowsocksFrontendHandler(Configuration configuration) throws Exception {
         this.configuration = configuration;
+        String algorithm = configuration.getMethod();
+        this.cipher = CipherFactory.getCipher(algorithm);
+        this.cipherInfo = CipherFactory.getCipherInfo(algorithm);
+        this.key = EncryptionUtils.evpBytesToKey(configuration.getPassword(), cipherInfo.getKeySize());
+    }
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        ctx.channel().read();
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        if (outboundChannel != null) {
+            NettyUtils.closeOnFlush(outboundChannel);
+        }
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        super.exceptionCaught(ctx, cause);
+        NettyUtils.closeOnFlush(ctx.channel());
     }
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        ByteBuf request = (ByteBuf) msg;
         if (firstRequest) {
-            Channel inboundChannel = ctx.channel();
-            final ByteBuf request = Unpooled.wrappedBuffer((byte[]) msg);
+            byte[] iv = new byte[cipherInfo.getIvSize()];
+            request.readBytes(iv);
+            cipher.init(Cipher.DECRYPT, key, iv);
+            //TODO 使用ByteBuf进行加密
+            byte[] t = new byte[request.readableBytes()];
+            request.readBytes(t);
+            byte[] decrypted = cipher.update(t);
+            request.clear();
+            request.writeBytes(decrypted);
+
+            final Channel inboundChannel = ctx.channel();
             InetSocketAddress address;
             byte type = request.readByte();
             String hostname = "";
@@ -53,19 +89,39 @@ public class ShadowsocksFrontendHandler extends ChannelInboundHandlerAdapter {
             address = new InetSocketAddress(hostname, port);
             Bootstrap bootstrap = new Bootstrap();
             bootstrap.group(inboundChannel.eventLoop())
-                    .channel(inboundChannel.getClass())
-                    .handler(new ShadowsocksBackendHandler(inboundChannel, configuration));
+                    .channel(NioSocketChannel.class)
+                    .handler(new ShadowsocksBackendHandler(inboundChannel, configuration))
+                    .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
+                    .option(ChannelOption.AUTO_READ, false);
             ChannelFuture future = bootstrap.connect(address);
-            future.addListener((ChannelFutureListener) future1 -> {
-                outboundChannel.writeAndFlush(request);
-                ctx.read();
+            future.addListener((ChannelFutureListener) channelFuture -> {
+                outboundChannel.writeAndFlush(request).addListener((ChannelFutureListener) f -> {
+                            if (future.isSuccess()) {
+                                ctx.channel().read();
+                            } else {
+                                logger.error("first Connection break;");
+                                future.channel().close();
+                            }
+                        }
+
+                );
             });
             outboundChannel = future.channel();
             firstRequest = false;
         } else {
-            if (outboundChannel.isActive()) {
-                outboundChannel.writeAndFlush(msg);
-            }
+            byte[] t = new byte[request.readableBytes()];
+            request.readBytes(t);
+            byte[] decrypted = cipher.update(t);
+            request.clear();
+            request.writeBytes(decrypted);
+            outboundChannel.writeAndFlush(request).addListener((ChannelFutureListener) future -> {
+                if (future.isSuccess())
+                    ctx.channel().read();
+                else {
+                    logger.error("Connection break;");
+                    future.channel().close();
+                }
+            });
         }
     }
 }

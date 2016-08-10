@@ -5,7 +5,6 @@ import com.weijian.shadowsocks.cipher.CipherFactory;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
-import io.netty.util.internal.SystemPropertyUtil;
 
 import java.util.Arrays;
 import java.util.List;
@@ -42,5 +41,11 @@ public class DecryptDecoder extends ByteToMessageDecoder {
         }
         byte[] result = cipher.update(payload);
         out.add(result);
+    }
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        ctx.read();
+        super.channelActive(ctx);
     }
 }

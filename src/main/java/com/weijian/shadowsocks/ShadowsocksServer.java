@@ -1,6 +1,7 @@
 package com.weijian.shadowsocks;
 
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -9,7 +10,8 @@ import io.netty.handler.logging.LoggingHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.net.*;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 /**
  * Created by weijian on 16-8-2.
@@ -25,8 +27,10 @@ public class ShadowsocksServer {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
-                    .handler(new LoggingHandler(LogLevel.INFO))
-                    .childHandler(new ShadowsocksInitializer(configuration));
+                    .handler(new LoggingHandler(LogLevel.WARN))
+                    .childHandler(new ShadowsocksInitializer(configuration))
+                    .childOption(ChannelOption.AUTO_READ, false)
+                    .childOption(ChannelOption.SO_KEEPALIVE, true);
             b.bind(address, configuration.getServerPort())
                     .sync().channel().closeFuture().sync();
         } catch (UnknownHostException e) {

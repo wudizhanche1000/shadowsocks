@@ -48,6 +48,7 @@ public class EncryptEncoder extends ChannelOutboundHandlerAdapter {
             firstResponse = false;
         }
         response.writeBytes(cipher.update(data));
-        ctx.writeAndFlush(response);
+        promise.setSuccess();
+        ctx.writeAndFlush(response, promise);
     }
 }
