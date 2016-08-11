@@ -34,7 +34,7 @@ public class DecryptDecoder extends ByteToMessageDecoder {
         if (init) {
             byte[] iv = Arrays.copyOfRange(payload, 0, 16);
             payload = Arrays.copyOfRange(payload, 16, payload.length);
-            byte[] key = EncryptionUtils.evpBytesToKey(configuration.getPassword(), 16);
+            byte[] key = EncryptionUtils.evpBytesToKey(configuration.getPassword().getBytes(), 16);
 //            ctx.channel().pipeline().addLast(new EncryptEncoder(configuration, key));
             cipher.init(Cipher.DECRYPT, key, iv);
             init = false;

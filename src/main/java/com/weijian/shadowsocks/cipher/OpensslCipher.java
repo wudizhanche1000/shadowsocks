@@ -1,6 +1,9 @@
 package com.weijian.shadowsocks.cipher;
 
+import com.weijian.shadowsocks.EncryptionUtils;
+
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 /**
  * Created by weijian on 16-8-7.
@@ -60,9 +63,9 @@ public class OpensslCipher implements Cipher {
         if (this.pCipher == 0) {
             throw new Exception("Cipher invalid");
         }
-        this.key = key;
+        this.key = EncryptionUtils.evpBytesToKey(key, iVSize);
         this.iv = iv;
-        pContext = init(mode, pCipher, key, iv);
+        pContext = init(mode, pCipher, this.key, iv);
         if (pContext == 0) {
             throw new Exception("Cipher initialize failed");
         }
@@ -90,12 +93,12 @@ public class OpensslCipher implements Cipher {
 
     @Override
     public byte[] getKey() {
-        return key;
+        return Arrays.copyOf(key, key.length);
     }
 
     @Override
     public byte[] getIv() {
-        return iv;
+        return Arrays.copyOf(iv, iv.length);
     }
 
 

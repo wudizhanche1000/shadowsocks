@@ -33,7 +33,7 @@ public class ShadowsocksBackendHandler extends ChannelInboundHandlerAdapter {
         cipher = CipherFactory.getCipher(configuration.getMethod());
         CipherFactory.CipherInfo info = CipherFactory.getCipherInfo(configuration.getMethod());
         byte[] iv = new byte[info.getIvSize()];
-        byte[] key = EncryptionUtils.evpBytesToKey(configuration.getPassword(), info.getKeySize());
+        byte[] key = configuration.getPassword().getBytes();
         SecureRandom random = new SecureRandom();
         random.nextBytes(iv);
         cipher.init(Cipher.ENCRYPT, key, iv);

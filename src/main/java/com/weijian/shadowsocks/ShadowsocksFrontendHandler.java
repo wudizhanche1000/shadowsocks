@@ -29,7 +29,7 @@ public class ShadowsocksFrontendHandler extends ChannelInboundHandlerAdapter {
         String algorithm = configuration.getMethod();
         this.cipher = CipherFactory.getCipher(algorithm);
         this.cipherInfo = CipherFactory.getCipherInfo(algorithm);
-        this.key = EncryptionUtils.evpBytesToKey(configuration.getPassword(), cipherInfo.getKeySize());
+        this.key = configuration.getPassword().getBytes();
     }
 
     @Override

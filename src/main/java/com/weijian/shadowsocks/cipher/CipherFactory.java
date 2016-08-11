@@ -43,6 +43,7 @@ public class CipherFactory {
         ciphers.put("aes-128-cfb", new CipherInfo(16, 16, OpensslCipher.class));
         ciphers.put("aes-192-cfb", new CipherInfo(24, 16, OpensslCipher.class));
         ciphers.put("aes-256-cfb", new CipherInfo(32, 16, OpensslCipher.class));
+        ciphers.put("table", new CipherInfo(0, 0, TableCipher.class));
     }
 
     public static CipherInfo getCipherInfo(String algorithm) {
