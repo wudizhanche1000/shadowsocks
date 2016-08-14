@@ -46,6 +46,7 @@ public class ShadowsocksServer {
         Configuration configuration = null;
         try {
             configuration = ConfigurationParser.parse(args);
+            Context.INSTANCE.setConfiguration(configuration);
         } catch (Exception e) {
             logger.error(e.getMessage());
             System.exit(1);

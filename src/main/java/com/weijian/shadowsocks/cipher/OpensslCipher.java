@@ -1,6 +1,7 @@
 package com.weijian.shadowsocks.cipher;
 
 import com.weijian.shadowsocks.EncryptionUtils;
+import io.netty.buffer.ByteBuf;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -82,6 +83,11 @@ public class OpensslCipher implements Cipher {
     }
 
     @Override
+    public void update(ByteBuf src, ByteBuf dst) {
+        throw new UnsupportedOperationException("not implement");
+    }
+
+    @Override
     public byte[] doFinal(byte[] data) {
         throw new UnsupportedOperationException("Not Implement");
     }
@@ -89,6 +95,11 @@ public class OpensslCipher implements Cipher {
     @Override
     public void doFinal(ByteBuffer src, ByteBuffer dst) {
         throw new UnsupportedOperationException("Not Implement");
+    }
+
+    @Override
+    public void doFinal(ByteBuf src, ByteBuf dst) {
+        throw new UnsupportedOperationException("not implement");
     }
 
     @Override

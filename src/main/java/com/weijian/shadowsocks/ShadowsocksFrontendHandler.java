@@ -52,6 +52,7 @@ public class ShadowsocksFrontendHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+
         ByteBuf request = (ByteBuf) msg;
         if (firstRequest) {
             byte[] iv = new byte[cipherInfo.getIvSize()];

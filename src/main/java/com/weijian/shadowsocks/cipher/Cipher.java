@@ -1,6 +1,8 @@
 package com.weijian.shadowsocks.cipher;
 
 
+import io.netty.buffer.ByteBuf;
+
 import java.nio.ByteBuffer;
 
 /**
@@ -26,8 +28,12 @@ public interface Cipher {
 
     void update(ByteBuffer src, ByteBuffer dst);
 
+    void update(ByteBuf src, ByteBuf dst);
+
     byte[] doFinal(byte[] data);
 
     void doFinal(ByteBuffer src, ByteBuffer dst);
+
+    void doFinal(ByteBuf src, ByteBuf dst);
 
 }

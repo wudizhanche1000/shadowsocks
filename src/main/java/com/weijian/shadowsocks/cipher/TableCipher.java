@@ -1,5 +1,7 @@
 package com.weijian.shadowsocks.cipher;
 
+import io.netty.buffer.ByteBuf;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.MessageDigest;
@@ -124,8 +126,12 @@ public class TableCipher implements Cipher {
         this.decryptTable = table.decryptTable;
     }
 
-    private static byte[] translate(byte[] data, byte[] table) {
-        byte[] result = Arrays.copyOf(data, data.length);
+    private static byte[] translate(byte[] data, byte[] table, boolean copy) {
+        byte[] result;
+        if (copy)
+            result = Arrays.copyOf(data, data.length);
+        else
+            result = data;
         for (int i = 0; i < data.length; i++) {
             result[i] = table[result[i] & 0xFF];
         }
@@ -134,16 +140,28 @@ public class TableCipher implements Cipher {
 
     @Override
     public byte[] update(byte[] data) {
+        return update(data, true);
+    }
+
+    private byte[] update(byte[] data, boolean copy) {
         if (mode == Cipher.DECRYPT) {
-            return translate(data, decryptTable);
+            return translate(data, decryptTable, copy);
         } else {
-            return translate(data, encryptTable);
+            return translate(data, encryptTable, copy);
         }
     }
 
     @Override
     public void update(ByteBuffer src, ByteBuffer dst) {
-        throw new UnsupportedOperationException("Not Implement");
+        throw new UnsupportedOperationException("not implements");
+    }
+
+    @Override
+    public void update(ByteBuf src, ByteBuf dst) {
+        byte[] b = new byte[src.readableBytes()];
+        src.readBytes(b);
+        update(b, false);
+        dst.writeBytes(b);
     }
 
     @Override
@@ -154,5 +172,10 @@ public class TableCipher implements Cipher {
     @Override
     public void doFinal(ByteBuffer src, ByteBuffer dst) {
         throw new UnsupportedOperationException("Not Implement");
+    }
+
+    @Override
+    public void doFinal(ByteBuf src, ByteBuf dst) {
+        throw new UnsupportedOperationException("not implements");
     }
 }
