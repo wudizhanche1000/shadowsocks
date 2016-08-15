@@ -126,13 +126,13 @@ public class TableCipher implements Cipher {
         this.decryptTable = table.decryptTable;
     }
 
-    private static byte[] translate(byte[] data, byte[] table, boolean copy) {
+    private static byte[] translate(byte[] data, int offset, int length, byte[] table, boolean copy) {
         byte[] result;
         if (copy)
-            result = Arrays.copyOf(data, data.length);
+            result = Arrays.copyOfRange(data, offset, offset + length);
         else
             result = data;
-        for (int i = 0; i < data.length; i++) {
+        for (int i = offset; i < offset + length; i++) {
             result[i] = table[result[i] & 0xFF];
         }
         return result;
@@ -140,14 +140,19 @@ public class TableCipher implements Cipher {
 
     @Override
     public byte[] update(byte[] data) {
-        return update(data, true);
+        return update(data, 0, data.length, true);
     }
 
-    private byte[] update(byte[] data, boolean copy) {
+    @Override
+    public byte[] update(byte[] data, int offset, int length) {
+        return update(data, offset, length, true);
+    }
+
+    private byte[] update(byte[] data, int offset, int length, boolean copy) {
         if (mode == Cipher.DECRYPT) {
-            return translate(data, decryptTable, copy);
+            return translate(data, offset, length, decryptTable, copy);
         } else {
-            return translate(data, encryptTable, copy);
+            return translate(data, offset, length, encryptTable, copy);
         }
     }
 
@@ -160,7 +165,7 @@ public class TableCipher implements Cipher {
     public void update(ByteBuf src, ByteBuf dst) {
         byte[] b = new byte[src.readableBytes()];
         src.readBytes(b);
-        update(b, false);
+        update(b, 0, b.length, false);
         dst.writeBytes(b);
     }
 

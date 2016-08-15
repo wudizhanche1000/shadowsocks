@@ -78,6 +78,11 @@ public class OpensslCipher implements Cipher {
     }
 
     @Override
+    public byte[] update(byte[] data, int offset, int length) {
+        throw new UnsupportedOperationException("Not Implement");
+    }
+
+    @Override
     public void update(ByteBuffer src, ByteBuffer dst) {
         throw new UnsupportedOperationException("Not Implement");
     }

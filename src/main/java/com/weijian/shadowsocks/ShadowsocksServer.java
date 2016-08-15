@@ -7,6 +7,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.util.ResourceLeakDetector;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -23,6 +24,9 @@ public class ShadowsocksServer {
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         try {
+            System.out.println(ResourceLeakDetector.isEnabled());
+            ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
+
             InetAddress address = InetAddress.getByName(configuration.getServer());
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)

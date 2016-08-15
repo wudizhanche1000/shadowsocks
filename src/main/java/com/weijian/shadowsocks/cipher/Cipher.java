@@ -26,6 +26,8 @@ public interface Cipher {
 
     byte[] update(byte[] data);
 
+    byte[] update(byte[] data, int offset, int length);
+
     void update(ByteBuffer src, ByteBuffer dst);
 
     void update(ByteBuf src, ByteBuf dst);

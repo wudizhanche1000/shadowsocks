@@ -15,27 +15,29 @@ import java.security.SecureRandom;
 /**
  * Created by weijian on 16-8-4.
  */
-public class ShadowsocksBackendHandler extends ChannelInboundHandlerAdapter {
+public class BackendHandler extends ChannelInboundHandlerAdapter {
+    private static SecureRandom random = new SecureRandom();
+    private static Configuration configuration = Context.configuration;
     private final Channel inboundChannel;
     private Cipher cipher;
-    private Configuration configuration;
     private Logger logger = LogManager.getLogger();
     private boolean init = true;
+
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         ctx.channel().read();
     }
 
-    public ShadowsocksBackendHandler(Channel inboundChannel, Configuration configuration) throws Exception {
-        this.configuration = configuration;
+    public BackendHandler(Channel inboundChannel) throws Exception {
         this.inboundChannel = inboundChannel;
         cipher = CipherFactory.getCipher(configuration.getMethod());
         CipherFactory.CipherInfo info = CipherFactory.getCipherInfo(configuration.getMethod());
         byte[] iv = new byte[info.getIvSize()];
         byte[] key = configuration.getPassword().getBytes();
-        SecureRandom random = new SecureRandom();
-        random.nextBytes(iv);
+        if (info.getIvSize() > 0) {
+            random.nextBytes(iv);
+        }
         cipher.init(Cipher.ENCRYPT, key, iv);
     }
 
@@ -47,6 +49,7 @@ public class ShadowsocksBackendHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         cause.printStackTrace();
+        logger.error(cause.getMessage());
         NettyUtils.closeOnFlush(ctx.channel());
     }
 
@@ -67,7 +70,7 @@ public class ShadowsocksBackendHandler extends ChannelInboundHandlerAdapter {
                 ctx.channel().read();
             else {
                 future.channel().close();
-                logger.error("Connection break;");
+                logger.error("Connection reset by remote");
             }
         });
     }

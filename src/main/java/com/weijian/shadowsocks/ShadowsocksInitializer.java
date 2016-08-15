@@ -17,10 +17,7 @@ public class ShadowsocksInitializer extends ChannelInitializer<SocketChannel> {
     @Override
     protected void initChannel(SocketChannel ch) throws Exception {
         ch.pipeline().addLast(
-//                new LoggingHandler(LogLevel.INFO),
-//                new InitRequestHandler(configuration),
                 new InitRequestHandler()
-//                new ShadowsocksFrontendHandler(configuration)
         );
     }
 
