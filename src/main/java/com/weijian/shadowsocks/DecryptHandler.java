@@ -30,6 +30,10 @@ public class DecryptHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (msg instanceof ByteBuf) {
             ByteBuf request = (ByteBuf) msg;
+            if (!request.isReadable()) {
+                request.release();
+                return;
+            }
             ByteBuf encrypted;
             if (!init) {
                 encrypted = ctx.alloc().directBuffer(request.capacity());

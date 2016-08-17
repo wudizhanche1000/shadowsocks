@@ -15,6 +15,8 @@ import io.netty.util.concurrent.DefaultEventExecutorGroup;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.net.InetAddress;
 
 /**
@@ -27,7 +29,8 @@ public class InitRequestHandler extends ChannelInboundHandlerAdapter {
     public static final int ADDRESS_HOSTNAME = 3;
     public static final int ADDRESS_IPV4_LEN = 4;
     public static final int ADDRESS_IPV6_LEN = 16;
-    public static final int ADDRESS_HOSTNAME_OFFSET = 2;
+
+    public static final String ONE_AUTH_ALGORITHM = "HmacSHA1";
 
 
     private static final DefaultEventExecutorGroup executorGroup = new DefaultEventExecutorGroup(4);
@@ -36,12 +39,14 @@ public class InitRequestHandler extends ChannelInboundHandlerAdapter {
     private static final Configuration configuration = context.getConfiguration();
     private static CipherFactory.CipherInfo cipherInfo = context.getCipherInfo();
 
-    private final Cipher cipher = CipherFactory.getCipher(configuration.getMethod());
-    private final byte[] iv = new byte[cipherInfo.getIvSize()];
+    private Cipher cipher = CipherFactory.getCipher(configuration.getMethod());
+    private Mac macDigest = null;
+    private byte[] iv = new byte[cipherInfo.getIvSize()];
     private int ivIndex;
 
     public InitRequestHandler() throws Exception {
     }
+
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
@@ -57,13 +62,13 @@ public class InitRequestHandler extends ChannelInboundHandlerAdapter {
                 .channel(NioSocketChannel.class)
                 .handler(new BackendHandler(ctx.channel()))
                 .option(ChannelOption.SO_KEEPALIVE, true)
+                .option(ChannelOption.AUTO_READ, false)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000);
         b.connect(address, port).addListener((ChannelFutureListener) future -> {
             if (future.isSuccess()) {
+                ctx.pipeline().addLast(new DecryptHandler(this.cipher));
                 if ((type & 0x10) != 0) {
-                    ctx.pipeline().addLast(new OneTimeAuthHandler(cipher, iv));
-                } else {
-                    ctx.pipeline().addLast(new DecryptHandler(cipher));
+                    ctx.pipeline().addLast(new OneTimeAuthHandler(macDigest, iv));
                 }
                 ctx.pipeline().addLast(new RelayHandler(type, future.channel()));
                 ctx.pipeline().remove(this);
@@ -72,7 +77,7 @@ public class InitRequestHandler extends ChannelInboundHandlerAdapter {
                 logger.error("connection to {}:{} failed", address.getHostAddress(), port);
                 if (msg instanceof ByteBuf)
                     ((ByteBuf) msg).release();
-                ctx.close();
+                NettyUtils.closeOnFlush(ctx.channel());
             }
         });
     }
@@ -92,64 +97,110 @@ public class InitRequestHandler extends ChannelInboundHandlerAdapter {
 
             byte[] key = context.getConfiguration().getPassword().getBytes();
             cipher.init(Cipher.DECRYPT, key, iv);
-            ByteBuf encrypted = ctx.channel().alloc().directBuffer(request.capacity());
-            cipher.update(request, encrypted);
+            ByteBuf decrypted = ctx.channel().alloc().directBuffer(request.capacity());
+            cipher.update(request, decrypted);
             request.release();
-            byte type = encrypted.readByte();
-            // If server switch OTA on but client didn't, shutdown the connection.
+
+            byte type = decrypted.readByte();
+            // If server switch OTA on but client didn't, close the connection.
             if ((type & 0x10) == 0 && configuration.getAuth()) {
                 NettyUtils.closeOnFlush(ctx.channel());
-                encrypted.release();
+                decrypted.release();
                 return;
             }
-            byte[] ip;
+            byte[] buffer;
             int port;
             final InetAddress[] address = new InetAddress[1];
             switch (type & 0x0F) {
                 case ADDRESS_IPV4:
-                    ip = new byte[ADDRESS_IPV4_LEN];
+                    buffer = new byte[ADDRESS_IPV4_LEN];
                     break;
                 case ADDRESS_IPV6:
-                    ip = new byte[ADDRESS_IPV6_LEN];
+                    buffer = new byte[ADDRESS_IPV6_LEN];
                     break;
                 case ADDRESS_HOSTNAME:
-                    int length = encrypted.readByte() & 0xFF;
-                    ip = new byte[length];
+                    int length = decrypted.readByte() & 0xFF;
+                    buffer = new byte[length];
                     break;
                 default:
                     // unknown address type
                     NettyUtils.closeOnFlush(ctx.channel());
-                    encrypted.release();
+                    decrypted.release();
                     return;
 
             }
-            encrypted.readBytes(ip);
-            port = encrypted.readShort() & 0xFFFF;
+            decrypted.readBytes(buffer);
+            port = decrypted.readShort() & 0xFFFF;
+            if ((type & 0x10) != 0) {
+                byte[] header;
+                macDigest = Mac.getInstance(ONE_AUTH_ALGORITHM);
+                // type + dst address length + port length + 1 if address type is hostname
+                int headerLength = 1 + buffer.length + 2 + ((type & 0x0F) == ADDRESS_HOSTNAME ? 1 : 0);
+                header = new byte[headerLength];
+                header[0] = type;
+                int index = 1;
+                if ((type & 0x0F) == ADDRESS_HOSTNAME) {
+                    header[1] = (byte) buffer.length;
+                    index += 1;
+                }
+                System.arraycopy(buffer, 0, header, index, buffer.length);
+                index += buffer.length;
+                header[index] = (byte) ((port & 0xFF00) >> 8);
+                header[index + 1] = (byte) (port & 0x00FF);
+
+                // verify hmac of header
+                byte[] headerKey = new byte[iv.length + cipher.getKey().length];
+                if (iv.length > 0)
+                    System.arraycopy(iv, 0, headerKey, 0, iv.length);
+                System.arraycopy(cipher.getKey(), 0, headerKey, iv.length, cipher.getKey().length);
+                SecretKeySpec keySpec;
+                if (cipherInfo.getIvSize() + cipherInfo.getKeySize() != 0)
+                    keySpec = new SecretKeySpec(headerKey, 0, headerKey.length, ONE_AUTH_ALGORITHM);
+                else
+                    keySpec = new SecretKeySpec(headerKey, headerKey.length, 0, ONE_AUTH_ALGORITHM);
+                macDigest.init(keySpec);
+                macDigest.update(header);
+                byte[] result = macDigest.doFinal();
+                byte[] hash = new byte[10];
+                decrypted.readBytes(hash);
+                if (!Utils.verifyHmac(hash, 0, result, 0, 10)) {
+                    logger.error("one time auth verify failed");
+                    NettyUtils.closeOnFlush(ctx.channel());
+                    decrypted.release();
+                    return;
+                }
+            }
             if ((type & 0x0F) == ADDRESS_HOSTNAME) {
-                final String hostname = new String(ip);
+                final String hostname = new String(buffer);
                 InetNameResolver nameResolver = new DefaultNameResolver(executorGroup.next());
                 nameResolver.resolve(hostname).addListener(future -> {
                             if (future.isSuccess()) {
                                 address[0] = (InetAddress) future.getNow();
-                                fireNextChannelRead(ctx, encrypted, type, address[0], port);
+                                fireNextChannelRead(ctx, decrypted, type, address[0], port);
                             } else {
                                 if (context.isDebug())
-                                    logger.error("can't resolve hostname {}", hostname);
-                                encrypted.release();
+                                    logger.debug("can't resolve hostname {}", hostname);
+                                decrypted.release();
                                 NettyUtils.closeOnFlush(ctx.channel());
                             }
                         }
                 );
             } else {
-                address[0] = InetAddress.getByAddress(ip);
-                fireNextChannelRead(ctx, encrypted, type, address[0], port);
+                address[0] = InetAddress.getByAddress(buffer);
+                fireNextChannelRead(ctx, decrypted, type, address[0], port);
             }
         }
 
     }
 
     @Override
+    protected void finalize() throws Throwable {
+        super.finalize();
+    }
+
+    @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        cause.printStackTrace();
         logger.error(cause.getMessage());
         NettyUtils.closeOnFlush(ctx.channel());
     }

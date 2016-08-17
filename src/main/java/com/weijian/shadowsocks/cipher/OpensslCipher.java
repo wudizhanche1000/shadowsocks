@@ -55,16 +55,13 @@ public class OpensslCipher implements Cipher {
 
     @Override
     public void init(int mode, byte[] key, byte[] iv) throws Exception {
-        if (keySize != key.length) {
-            throw new Exception("Key size should be " + keySize);
-        }
         if (iVSize != iv.length) {
             throw new Exception("Iv size should be " + iVSize);
         }
         if (this.pCipher == 0) {
             throw new Exception("Cipher invalid");
         }
-        this.key = EncryptionUtils.evpBytesToKey(key, iVSize);
+        this.key = EncryptionUtils.evpBytesToKey(key, keySize);
         this.iv = iv;
         pContext = init(mode, pCipher, this.key, iv);
         if (pContext == 0) {
@@ -89,7 +86,9 @@ public class OpensslCipher implements Cipher {
 
     @Override
     public void update(ByteBuf src, ByteBuf dst) {
-        throw new UnsupportedOperationException("not implement");
+        byte[] data = new byte[src.readableBytes()];
+        src.readBytes(data);
+        dst.writeBytes(update(pContext, data));
     }
 
     @Override

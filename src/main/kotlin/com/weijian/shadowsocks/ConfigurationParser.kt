@@ -1,11 +1,10 @@
 package com.weijian.shadowsocks
 
-import com.fasterxml.jackson.core.JsonParseException
-import com.fasterxml.jackson.databind.ObjectMapper
-import org.apache.commons.cli.*
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import org.apache.commons.cli.DefaultParser
+import org.apache.commons.cli.Option
+import org.apache.commons.cli.Options
 import java.io.File
-import com.fasterxml.jackson.module.kotlin.*
-import org.apache.logging.log4j.LogManager
 import java.io.FileNotFoundException
 
 /**
@@ -23,7 +22,10 @@ object ConfigurationParser {
                 Option.builder("k").hasArg().argName("password").desc("Password of your remote server"),
                 Option.builder("m").hasArg().argName("encrypt_method").desc("Encrypt method: "),
                 Option.builder("c").hasArg().argName("config_file").desc("The path to config file"),
-                Option.builder("v").hasArg(false).desc("verbose mode"))
+                Option.builder("v").hasArg(false).desc("verbose mode"),
+                Option.builder("d").hasArg(false).desc("debug mode")
+        )
+
         for (builder in builders) {
             options.addOption(builder.build())
         }

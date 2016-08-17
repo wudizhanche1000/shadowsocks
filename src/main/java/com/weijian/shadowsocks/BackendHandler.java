@@ -48,7 +48,6 @@ public class BackendHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        cause.printStackTrace();
         logger.error(cause.getMessage());
         NettyUtils.closeOnFlush(ctx.channel());
     }
@@ -66,11 +65,11 @@ public class BackendHandler extends ChannelInboundHandlerAdapter {
         }
         response.writeBytes(encrypted);
         inboundChannel.writeAndFlush(response).addListener((ChannelFutureListener) future -> {
-            if (future.isSuccess())
-                ctx.channel().read();
-            else {
+            if (future.isSuccess()) {
+                ctx.read();
+            } else {
                 future.channel().close();
-                logger.error("Connection reset by remote");
+                logger.error("Connection reset by peer");
             }
         });
     }

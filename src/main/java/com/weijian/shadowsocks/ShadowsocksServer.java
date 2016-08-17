@@ -33,7 +33,7 @@ public class ShadowsocksServer {
                     .channel(NioServerSocketChannel.class)
                     .handler(new LoggingHandler(LogLevel.WARN))
                     .childHandler(new ShadowsocksInitializer(configuration))
-                    .childOption(ChannelOption.AUTO_READ, false)
+                    .childOption(ChannelOption.AUTO_READ, true)
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
             b.bind(address, configuration.getServerPort())
                     .sync().channel().closeFuture().sync();
