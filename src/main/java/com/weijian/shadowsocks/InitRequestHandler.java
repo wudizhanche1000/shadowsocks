@@ -64,20 +64,28 @@ public class InitRequestHandler extends ChannelInboundHandlerAdapter {
                 .option(ChannelOption.SO_KEEPALIVE, true)
                 .option(ChannelOption.AUTO_READ, false)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000);
+        if (context.isDebug())
+            logger.debug("connect to {}:{}", address.getHostAddress(), port);
         b.connect(address, port).addListener((ChannelFutureListener) future -> {
             if (future.isSuccess()) {
-                ctx.pipeline().addLast(new DecryptHandler(this.cipher));
-                if ((type & 0x10) != 0) {
-                    ctx.pipeline().addLast(new OneTimeAuthHandler(macDigest, iv));
+                if (!ctx.isRemoved()) {
+                    ctx.pipeline().addLast(new DecryptHandler(cipher));
+                    if ((type & 0x10) != 0) {
+                        ctx.pipeline().addLast(new OneTimeAuthHandler(macDigest, iv));
+                    }
+                    ctx.pipeline().addLast(new RelayHandler(type, future.channel()));
+                    ctx.pipeline().remove(this);
+                    ctx.fireChannelRead(msg);
+                } else {
+                    future.channel().close();
                 }
-                ctx.pipeline().addLast(new RelayHandler(type, future.channel()));
-                ctx.pipeline().remove(this);
-                ctx.fireChannelRead(msg);
             } else {
-                logger.error("connection to {}:{} failed", address.getHostAddress(), port);
+                logger.error("connect to {}:{} failed", address.getHostAddress(), port);
                 if (msg instanceof ByteBuf)
                     ((ByteBuf) msg).release();
-                NettyUtils.closeOnFlush(ctx.channel());
+                if (ctx.channel().isActive())
+                    NettyUtils.closeOnFlush(ctx.channel());
+                future.channel().close();
             }
         });
     }
@@ -170,6 +178,7 @@ public class InitRequestHandler extends ChannelInboundHandlerAdapter {
                     return;
                 }
             }
+            // if type is hostname, use a new executor
             if ((type & 0x0F) == ADDRESS_HOSTNAME) {
                 final String hostname = new String(buffer);
                 InetNameResolver nameResolver = new DefaultNameResolver(executorGroup.next());
@@ -181,7 +190,6 @@ public class InitRequestHandler extends ChannelInboundHandlerAdapter {
                                 if (context.isDebug())
                                     logger.debug("can't resolve hostname {}", hostname);
                                 decrypted.release();
-                                NettyUtils.closeOnFlush(ctx.channel());
                             }
                         }
                 );
@@ -194,13 +202,17 @@ public class InitRequestHandler extends ChannelInboundHandlerAdapter {
     }
 
     @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        NettyUtils.closeOnFlush(ctx.channel());
+    }
+
+    @Override
     protected void finalize() throws Throwable {
         super.finalize();
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        cause.printStackTrace();
         logger.error(cause.getMessage());
         NettyUtils.closeOnFlush(ctx.channel());
     }

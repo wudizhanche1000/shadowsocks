@@ -7,7 +7,6 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import io.netty.util.ResourceLeakDetector;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -24,12 +23,12 @@ public class ShadowsocksServer {
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         try {
-            ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.SIMPLE);
             InetAddress address = InetAddress.getByName(configuration.getServer());
             ServerBootstrap b = new ServerBootstrap();
+            LoggingHandler loggingHandler = new LoggingHandler(LogLevel.INFO);
             b.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
-                    .handler(new LoggingHandler(LogLevel.WARN))
+                    .handler(loggingHandler)
                     .childHandler(new ShadowsocksInitializer())
                     .childOption(ChannelOption.AUTO_READ, true)
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
@@ -43,6 +42,7 @@ public class ShadowsocksServer {
             workerGroup.shutdownGracefully();
         }
     }
+
 
     public static void main(String[] args) throws InterruptedException {
         Configuration configuration = null;
