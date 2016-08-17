@@ -24,15 +24,13 @@ public class ShadowsocksServer {
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         try {
-            System.out.println(ResourceLeakDetector.isEnabled());
-            ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
-
+            ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.SIMPLE);
             InetAddress address = InetAddress.getByName(configuration.getServer());
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
                     .handler(new LoggingHandler(LogLevel.WARN))
-                    .childHandler(new ShadowsocksInitializer(configuration))
+                    .childHandler(new ShadowsocksInitializer())
                     .childOption(ChannelOption.AUTO_READ, true)
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
             b.bind(address, configuration.getServerPort())

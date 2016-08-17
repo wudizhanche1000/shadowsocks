@@ -44,7 +44,7 @@ public class OpensslCipher implements Cipher {
         this.destroy(pContext);
     }
 
-    void initCipher(String algorithm, int keySize, int ivSize) {
+    OpensslCipher(String algorithm, int keySize, int ivSize) {
         this.keySize = keySize;
         this.iVSize = ivSize;
         this.algorithm = algorithm;

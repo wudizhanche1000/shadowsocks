@@ -1,6 +1,7 @@
 package com.weijian.shadowsocks.cipher;
 
-import java.lang.reflect.Method;
+import java.lang.reflect.Constructor;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -9,8 +10,6 @@ import java.util.Map;
  */
 public class CipherFactory {
     private static Map<String, CipherInfo> ciphers;
-
-    private final static String INIT_CIPHER_METHOD = "initCipher";
 
     public static class CipherInfo {
         private int keySize;
@@ -53,12 +52,10 @@ public class CipherFactory {
     public synchronized static Cipher getCipher(String algorithm) throws Exception {
         CipherInfo info = ciphers.get(algorithm);
         if (info == null) {
-            throw new Exception("cipher " + algorithm + " not found");
+            throw new NoSuchAlgorithmException("cipher " + algorithm + " not found");
         }
         Class<? extends Cipher> cipherClass = info.getCipherClass();
-        Cipher cipher = cipherClass.newInstance();
-        Method initCipherMethod = cipherClass.getDeclaredMethod(INIT_CIPHER_METHOD, String.class, int.class, int.class);
-        initCipherMethod.invoke(cipher, algorithm, info.getKeySize(), info.getIvSize());
-        return cipher;
+        Constructor<? extends Cipher> constructor = cipherClass.getDeclaredConstructor(String.class, int.class, int.class);
+        return constructor.newInstance(algorithm, info.getKeySize(), info.getIvSize());
     }
 }

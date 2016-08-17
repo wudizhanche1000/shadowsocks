@@ -8,10 +8,7 @@ import io.netty.channel.socket.SocketChannel;
  */
 public class ShadowsocksInitializer extends ChannelInitializer<SocketChannel> {
 
-    private final Configuration configuration;
-
-    public ShadowsocksInitializer(Configuration configuration) {
-        this.configuration = configuration;
+    public ShadowsocksInitializer() {
     }
 
     @Override

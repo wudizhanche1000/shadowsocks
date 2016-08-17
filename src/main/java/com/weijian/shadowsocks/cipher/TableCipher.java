@@ -52,7 +52,7 @@ public class TableCipher implements Cipher {
     private byte[] encryptTable;
     private byte[] decryptTable;
 
-    void initCipher(String algorithm, int keySize, int ivSize) {
+    TableCipher(String algorithm, int keySize, int ivSize) {
         this.algorithm = algorithm;
         this.keySize = keySize;
         this.ivSize = ivSize;
