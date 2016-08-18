@@ -73,7 +73,7 @@ public class InitRequestHandler extends ChannelInboundHandlerAdapter {
                     if ((type & 0x10) != 0) {
                         ctx.pipeline().addLast(new OneTimeAuthHandler(macDigest, iv));
                     }
-                    ctx.pipeline().addLast(new RelayHandler(type, future.channel()));
+                    ctx.pipeline().addLast(new RelayHandler(future.channel()));
                     ctx.pipeline().remove(this);
                     ctx.fireChannelRead(msg);
                 } else {

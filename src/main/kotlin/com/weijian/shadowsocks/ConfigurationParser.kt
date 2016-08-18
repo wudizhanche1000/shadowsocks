@@ -17,13 +17,12 @@ object ConfigurationParser {
         options = Options()
         val builders = arrayOf(
                 Option.builder("s").hasArg().argName("server_host").desc("Host name or IP address of your remote server"),
-                Option.builder("p").hasArg().argName("server_port").desc("Port number of your remote server"),
-                Option.builder("l").hasArg().argName("local_port").desc("Port number of your local server"),
+                Option.builder("p").hasArg().argName("server_port").desc("Port number of your remote server").type(Int::class.java),
+                Option.builder("l").hasArg().argName("local_port").desc("Port number of your local server").type(Int::class.java),
                 Option.builder("k").hasArg().argName("password").desc("Password of your remote server"),
                 Option.builder("m").hasArg().argName("encrypt_method").desc("Encrypt method: "),
                 Option.builder("c").hasArg().argName("config_file").desc("The path to config file"),
-                Option.builder("v").hasArg(false).desc("verbose mode"),
-                Option.builder("d").hasArg(false).desc("debug mode")
+                Option.builder("v").hasArg(false).desc("verbose mode")
         )
 
         for (builder in builders) {
@@ -31,12 +30,32 @@ object ConfigurationParser {
         }
     }
 
+
     @JvmStatic
     @Throws(Exception::class)
     fun parse(args: Array<String>): Configuration {
-        val configuration = Configuration()
         val parser = DefaultParser()
         val cmd = parser.parse(options, args)
+        var debug = false
+        var password = ""
+        var serverHost = ""
+        var serverPort = 0
+        var localPort: Int = 0
+        var method = ""
+        if (cmd.hasOption("v"))
+            debug = true
+        if (cmd.hasOption("k"))
+            password = cmd.getOptionValue("k")
+        if (cmd.hasOption("s"))
+            serverHost = cmd.getOptionValue("s")
+        if (cmd.hasOption("p"))
+            serverPort = cmd.getOptionValue("p").toInt()
+        if (cmd.hasOption("l"))
+            localPort = cmd.getOptionValue("l").toInt()
+        if (cmd.hasOption("m"))
+            method = cmd.getOptionValue("m")
+        val configuration = Configuration(server = serverHost, serverPort = serverPort, localPort = localPort
+                , method = method, password = password, debug = debug)
         if (cmd.hasOption("c")) {
             val configPath = cmd.getOptionValue("c")
             val file = File(configPath)

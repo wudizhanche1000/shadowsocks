@@ -13,10 +13,6 @@ import org.apache.logging.log4j.Logger;
 public class RelayHandler extends ChannelInboundHandlerAdapter {
     private static Logger logger = LogManager.getLogger();
 
-    private static final Context context = Context.INSTANCE;
-    private static final Configuration configuration = context.getConfiguration();
-
-    private final int type;
     private final Channel outboundChannel;
 
     @Override
@@ -25,14 +21,13 @@ public class RelayHandler extends ChannelInboundHandlerAdapter {
         NettyUtils.closeOnFlush(ctx.channel());
     }
 
-    public RelayHandler(int type, Channel outboundChannel) {
-        this.type = type;
+    public RelayHandler(Channel outboundChannel) {
         this.outboundChannel = outboundChannel;
     }
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        if(outboundChannel!=null){
+        if (outboundChannel != null) {
             NettyUtils.closeOnFlush(outboundChannel);
         }
     }
