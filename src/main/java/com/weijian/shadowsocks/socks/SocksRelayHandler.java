@@ -23,10 +23,15 @@ public class SocksRelayHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (relayChannel.isActive()) {
-            relayChannel.writeAndFlush(msg);
+            relayChannel.write(msg);
         } else {
             ReferenceCountUtil.release(msg);
         }
+    }
+
+    @Override
+    public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
+        ctx.channel().flush();
     }
 
     @Override
