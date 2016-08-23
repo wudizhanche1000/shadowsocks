@@ -1,5 +1,7 @@
 package com.weijian.shadowsocks.socks;
 
+import com.weijian.shadowsocks.Configuration;
+import com.weijian.shadowsocks.Context;
 import com.weijian.shadowsocks.NettyUtils;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
@@ -19,6 +21,9 @@ import org.apache.logging.log4j.Logger;
  */
 @ChannelHandler.Sharable
 public class SocksServerConnectHandler extends SimpleChannelInboundHandler<SocksMessage> {
+    private static final Context context = Context.INSTANCE;
+    private static final Configuration configuration = context.getConfiguration();
+
     private static Logger logger = LogManager.getLogger();
     private final Bootstrap b = new Bootstrap();
 
@@ -60,16 +65,14 @@ public class SocksServerConnectHandler extends SimpleChannelInboundHandler<Socks
                     .option(ChannelOption.SO_KEEPALIVE, true)
                     .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
                     .handler(new DirectClientHandler(promise));
-            b.connect(request.dstAddr(), request.dstPort()).addListener((ChannelFutureListener) future -> {
-                        if (future.isSuccess()) {
-
-                        } else {
+            b.connect(configuration.getServer(), configuration.getServerPort()).addListener(
+                    (ChannelFutureListener) future -> {
+                        if (!future.isSuccess()) {
                             ctx.channel().writeAndFlush(new DefaultSocks5CommandResponse(Socks5CommandStatus.FAILURE, request.dstAddrType()));
                             NettyUtils.closeOnFlush(ctx.channel());
                         }
                     }
             );
-
         } else {
             ctx.close();
         }

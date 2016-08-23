@@ -10,6 +10,10 @@ data class Configuration constructor(val server: String = "0.0.0.0", @JsonProper
                                      @JsonProperty("local_port") val localPort: Int = 1080, val password: String = "",
                                      val timeout: Int = 600, val method: String = "table", val auth: Boolean = true,
                                      val debug: Boolean = false) {
+    val key: ByteArray by   lazy {
+        password.toByteArray()
+    }
+
     override fun toString(): String {
         return jacksonObjectMapper().writeValueAsString(this)
     }

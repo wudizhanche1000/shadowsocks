@@ -16,8 +16,10 @@ import java.util.List;
  * Created by weijian on 16-8-15.
  */
 public class OneTimeAuthHandler extends ByteToMessageDecoder {
+    public static final String NAME = "OneTimeAuthHandler";
 
     private static final Logger logger = LogManager.getLogger();
+    public static final String ONE_AUTH_ALGORITHM = "HmacSHA1";
 
     private int counter = 0;
     private int dataLength = 0;
@@ -36,17 +38,15 @@ public class OneTimeAuthHandler extends ByteToMessageDecoder {
     /***
      *  Initialize new OneTimeAuthHandler
      *
-     * @param macDigest Mac could init multi times, so we don't need a new one.
      * @param iv iv of this request
      * @throws NoSuchAlgorithmException
      */
-    public OneTimeAuthHandler(Mac macDigest, byte[] iv) throws NoSuchAlgorithmException {
+    public OneTimeAuthHandler(byte[] iv) throws NoSuchAlgorithmException {
         this.iv = iv;
         this.key = new byte[iv.length + 4];
         if (iv.length > 0)
             System.arraycopy(iv, 0, key, 0, iv.length);
-        macDigest.reset();
-        this.macDigest = macDigest;
+        macDigest = Mac.getInstance(ONE_AUTH_ALGORITHM);
     }
 
     @Override
@@ -63,7 +63,7 @@ public class OneTimeAuthHandler extends ByteToMessageDecoder {
         byte[] buffer = new byte[dataLength];
         in.readBytes(buffer);
         Utils.writeInt(key, iv.length, counter++);
-        SecretKeySpec keySpec = new SecretKeySpec(key, InitRequestHandler.ONE_AUTH_ALGORITHM);
+        SecretKeySpec keySpec = new SecretKeySpec(key, ONE_AUTH_ALGORITHM);
         macDigest.reset();
         macDigest.init(keySpec);
         macDigest.update(buffer, 0, dataLength);

@@ -15,6 +15,7 @@ public class ShadowsocksLocal {
         try {
             configuration = ConfigurationParser.parse(args);
             Context.INSTANCE.setConfiguration(configuration);
+            Context.INSTANCE.setServerMode(false);
             if (configuration.getServerPort() == 0 && configuration.getPassword().equals("")) {
                 throw new Exception("Not enough arguments");
             }
