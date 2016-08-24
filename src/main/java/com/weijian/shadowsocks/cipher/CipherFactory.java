@@ -49,7 +49,7 @@ public class CipherFactory {
         return ciphers.get(algorithm);
     }
 
-    public synchronized static Cipher getCipher(String algorithm) throws Exception {
+    public static Cipher getCipher(String algorithm) throws Exception {
         CipherInfo info = ciphers.get(algorithm);
         if (info == null) {
             throw new NoSuchAlgorithmException("cipher " + algorithm + " not found");

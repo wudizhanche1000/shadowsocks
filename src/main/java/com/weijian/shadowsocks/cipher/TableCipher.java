@@ -1,5 +1,6 @@
 package com.weijian.shadowsocks.cipher;
 
+import com.weijian.shadowsocks.ByteComparableMap;
 import io.netty.buffer.ByteBuf;
 
 import java.nio.ByteBuffer;
@@ -7,8 +8,6 @@ import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import java.util.Map;
-import java.util.TreeMap;
 
 /**
  * Created by weijian on 16-8-11.
@@ -29,20 +28,7 @@ public class TableCipher implements Cipher {
         byte[] decryptTable;
     }
 
-    private static Map<byte[], TransformTable> cache_tables = new TreeMap<>((o1, o2) -> {
-        if (o1.length > o2.length)
-            return 1;
-        else if (o1.length < o2.length)
-            return -1;
-        int count = o1.length;
-        for (int i = 0; i < count; i++) {
-            if (o1[i] > o2[i])
-                return 1;
-            else if (o1[i] < o2[i])
-                return -1;
-        }
-        return 0;
-    });
+    private static ByteComparableMap<TransformTable> cache_tables = new ByteComparableMap<>();
     private int mode;
     private String algorithm;
     private byte[] key;

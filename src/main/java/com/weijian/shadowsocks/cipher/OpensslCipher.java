@@ -1,5 +1,6 @@
 package com.weijian.shadowsocks.cipher;
 
+import com.weijian.shadowsocks.ByteComparableMap;
 import com.weijian.shadowsocks.EncryptionUtils;
 import io.netty.buffer.ByteBuf;
 
@@ -10,6 +11,8 @@ import java.util.Arrays;
  * Created by weijian on 16-8-7.
  */
 public class OpensslCipher implements Cipher {
+    private static final ByteComparableMap<byte[]> keyMap = new ByteComparableMap<>();
+
     static {
         System.loadLibrary("openssl-crypto");
     }
@@ -61,7 +64,12 @@ public class OpensslCipher implements Cipher {
         if (this.pCipher == 0) {
             throw new Exception("Cipher invalid");
         }
-        this.key = EncryptionUtils.evpBytesToKey(key, keySize);
+
+        this.key = keyMap.get(key);
+        if (this.key == null) {
+            this.key = EncryptionUtils.evpBytesToKey(key, keySize);
+            keyMap.put(key, this.key);
+        }
         this.iv = iv;
         pContext = init(mode, pCipher, this.key, iv);
         if (pContext == 0) {
