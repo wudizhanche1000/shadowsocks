@@ -16,7 +16,7 @@ public class ShadowsocksInitializer extends ChannelInitializer<SocketChannel> {
         ch.pipeline().addFirst(DecryptHandler.NAME,
                 new DecryptHandler()
         );
-        ch.pipeline().addLast(new InitRequestHandler());
+        ch.pipeline().addLast(new ServerConnectHandler());
     }
 
 }

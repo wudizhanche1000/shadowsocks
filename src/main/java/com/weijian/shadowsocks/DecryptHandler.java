@@ -21,6 +21,7 @@ public class DecryptHandler extends ChannelInboundHandlerAdapter {
     private final Cipher cipher = CipherFactory.getCipher(configuration.getMethod());
     private byte[] iv = null;
     private int ivIndex = 0;
+    private boolean init = true;
 
     public DecryptHandler() throws Exception {
     }
@@ -57,19 +58,22 @@ public class DecryptHandler extends ChannelInboundHandlerAdapter {
                 return;
             }
         } else if (cipherInfo.getIvSize() == 0) {
-            cipher.init(Cipher.DECRYPT, configuration.getKey(), new byte[0]);
+            iv = new byte[0];
+            cipher.init(Cipher.DECRYPT, configuration.getKey(), iv);
         }
         if (request.isReadable()) {
             ByteBuf decrypted = ctx.alloc().directBuffer(request.capacity());
             cipher.update(request, decrypted);
             request.release();
-            if (configuration.getAuth() && context.isServerMode()) {
-                ctx.pipeline().addAfter(NAME, OneTimeAuthHandler.NAME, new OneTimeAuthHandler(iv));
+            if (context.isServerMode() && init) {
+                // 如果服务端开启了OTA或者客户端开启了OTA
+                if (configuration.getAuth() || (decrypted.getByte(0) & 0x10) == 0x10)
+                    ctx.pipeline().addAfter(NAME, OneTimeAuthHandler.NAME, new OneTimeAuthHandler(iv, cipher.getKey()));
+                init = false;
             }
             decrypted.markReaderIndex();
             byte[] temp = new byte[decrypted.readableBytes()];
             decrypted.readBytes(temp);
-//            System.out.println(new String(temp));
             decrypted.resetReaderIndex();
             ctx.fireChannelRead(decrypted);
         } else {

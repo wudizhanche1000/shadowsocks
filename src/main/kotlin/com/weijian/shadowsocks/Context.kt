@@ -12,6 +12,7 @@ object Context {
     val cipherInfo: CipherFactory.CipherInfo by lazy {
         CipherFactory.getCipherInfo(configuration.method)
     }
+        get
     val isDebug: Boolean by lazy {
         configuration.debug
     }

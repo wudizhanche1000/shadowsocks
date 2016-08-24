@@ -14,16 +14,13 @@ import org.apache.logging.log4j.Logger;
 
 import java.net.InetAddress;
 
+import static com.weijian.shadowsocks.Constants.*;
+
 /**
  * Created by weijian on 16-8-13.
  */
-public class InitRequestHandler extends ChannelInboundHandlerAdapter {
+public class ServerConnectHandler extends ChannelInboundHandlerAdapter {
 
-    public static final int ADDRESS_IPV4 = 1;
-    public static final int ADDRESS_IPV6 = 4;
-    public static final int ADDRESS_HOSTNAME = 3;
-    public static final int ADDRESS_IPV4_LEN = 4;
-    public static final int ADDRESS_IPV6_LEN = 16;
 
 
     private static final Logger logger = LogManager.getLogger();
@@ -34,7 +31,7 @@ public class InitRequestHandler extends ChannelInboundHandlerAdapter {
     private byte type = 0;
     private int length = 0;
 
-    public InitRequestHandler() throws Exception {
+    public ServerConnectHandler() throws Exception {
     }
 
     @Override
@@ -55,11 +52,6 @@ public class InitRequestHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         assert msg instanceof ByteBuf;
         final ByteBuf request = (ByteBuf) msg;
-//        request.markReaderIndex();
-//        byte[] t = new byte[request.readableBytes()];
-//        request.readBytes(t);
-//        System.out.println(new String(t) + "\n\n");
-//        request.resetReaderIndex();
         if (length == 0) {
             if (type == 0) {
                 type = request.readByte();
