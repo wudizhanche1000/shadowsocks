@@ -58,6 +58,7 @@ public class OneTimeAuthHandler extends ChannelInboundHandlerAdapter {
                     type = request.readByte();
                     if (Context.configuration.getAuth() && (type & 0x10) != 0x10) {
                         logger.error("server insist one time auth");
+                        request.release();
                         ctx.close();
                         return;
                     }
