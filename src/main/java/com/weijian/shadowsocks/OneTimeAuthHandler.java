@@ -2,9 +2,9 @@ package com.weijian.shadowsocks;
 
 import com.weijian.shadowsocks.cipher.CipherFactory;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.CompositeByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.handler.codec.ByteToMessageDecoder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -34,31 +34,28 @@ public class OneTimeAuthHandler extends ChannelInboundHandlerAdapter {
     private byte[] hash = new byte[HMAC_LENGTH];
     private boolean init = true;
     private byte type = 0;
-    private CompositeByteBuf buffer;
-    private CompositeByteBuf dataBuffer;
+    private ByteBuf buffer;
+    private ByteToMessageDecoder.Cumulator cumulator = ByteToMessageDecoder.MERGE_CUMULATOR;
     private final byte[] key;
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         assert msg instanceof ByteBuf;
         if (buffer == null) {
-            buffer = ctx.alloc().compositeDirectBuffer();
-            dataBuffer = ctx.alloc().compositeDirectBuffer();
+            buffer = (ByteBuf) msg;
+        } else {
+            buffer = cumulator.cumulate(ctx.alloc(), buffer, (ByteBuf) msg);
         }
-        ByteBuf request = (ByteBuf) msg;
-        if (buffer.isReadable()) {
-            buffer.addComponent(true, request);
-            request = buffer;
-        }
+        ByteBuf dataBuffer = ctx.alloc().directBuffer(((ByteBuf) msg).capacity());
 
         if (init) {
             if (dataLength == 0) {
                 if (type == 0) {
-                    request.markReaderIndex();
-                    type = request.readByte();
+                    buffer.markReaderIndex();
+                    type = buffer.readByte();
                     if (Context.configuration.getAuth() && (type & 0x10) != 0x10) {
                         logger.error("server insist one time auth");
-                        request.release();
+                        dataBuffer.release();
                         ctx.close();
                         return;
                     }
@@ -84,8 +81,8 @@ public class OneTimeAuthHandler extends ChannelInboundHandlerAdapter {
                         dataLength = ADDRESS_IPV6_LEN + 2 + 1;
                         break;
                     case ADDRESS_HOSTNAME:
-                        if (request.isReadable()) {
-                            int length = request.readByte();
+                        if (buffer.isReadable()) {
+                            int length = buffer.readByte();
                             dataLength = 1 + 1 + length + 2;
                         } else {
                             ctx.read();
@@ -93,44 +90,46 @@ public class OneTimeAuthHandler extends ChannelInboundHandlerAdapter {
                         }
                 }
             }
-            request.resetReaderIndex();
-            if (request.isReadable(dataLength + HMAC_LENGTH)) {
+            buffer.resetReaderIndex();
+            if (buffer.isReadable(dataLength + HMAC_LENGTH)) {
                 byte[] header = new byte[dataLength];
-                request.readBytes(header);
+                buffer.readBytes(header);
                 macDigest.update(header);
                 macDigest.doFinal(result, 0);
-                request.readBytes(hash);
+                buffer.readBytes(hash);
                 if (!Utils.verifyHmac(result, 0, hash, 0, HMAC_LENGTH)) {
                     logger.error("one time auth failed");
                     ctx.close();
                     return;
                 }
-                request.resetReaderIndex();
-                dataBuffer.addComponent(true, request.slice(request.readerIndex(), dataLength).retain());
-                request.skipBytes(dataLength + HMAC_LENGTH);
+                buffer.resetReaderIndex();
+                dataBuffer.writeBytes(buffer, dataLength);
+                buffer.skipBytes(HMAC_LENGTH);
                 init = false;
                 dataLength = 0;
                 macDigest.reset();
             } else {
-                if (request.isReadable() && request != buffer) {
-                    buffer.addComponent(true, request);
-                }
                 ctx.read();
+                return;
             }
         }
-        while (request.isReadable()) {
-            if (dataLength == 0 && request.isReadable(2)) {
-                dataLength = request.readShort() & 0xFFFF;
-            } else {
+        while (buffer.isReadable()) {
+            if (dataLength == 0) {
+                if (buffer.isReadable(2)) {
+                    dataLength = buffer.readShort() & 0xFFFF;
+                } else {
+                    ctx.read();
+                    break;
+                }
+            }
+            if (!buffer.isReadable(dataLength + HMAC_LENGTH)) {
+                ctx.read();
                 break;
             }
-            if (!request.isReadable(dataLength + HMAC_LENGTH)) {
-                break;
-            }
-            request.readBytes(hash);
+            buffer.readBytes(hash);
             byte[] t = new byte[dataLength];
-            request.markReaderIndex();
-            request.readBytes(t);
+            buffer.markReaderIndex();
+            buffer.readBytes(t);
             macDigest.reset();
             Utils.writeInt(macKey, iv.length, counter++);
             macDigest.init(new SecretKeySpec(macKey, ONE_AUTH_ALGORITHM));
@@ -141,18 +140,19 @@ public class OneTimeAuthHandler extends ChannelInboundHandlerAdapter {
                 ctx.close();
                 return;
             }
-            request.resetReaderIndex();
-            buffer.addComponent(true, request.slice(request.readerIndex(), dataLength).retain());
-            request.skipBytes(dataLength);
+            buffer.resetReaderIndex();
+            dataBuffer.writeBytes(buffer, dataLength);
             dataLength = 0;
 
         }
-        if (request.isReadable() && request != buffer) {
-            buffer.addComponent(true, request);
+        if (buffer != null && !buffer.isReadable()) {
+            buffer.release();
+            buffer = null;
+        } else {
+            buffer.discardSomeReadBytes();
         }
-        ctx.read();
         if (dataBuffer.isReadable())
-            ctx.fireChannelRead(dataBuffer.retain());
+            ctx.fireChannelRead(dataBuffer);
     }
 
     @Override
@@ -181,11 +181,8 @@ public class OneTimeAuthHandler extends ChannelInboundHandlerAdapter {
     @Override
     protected void finalize() throws Throwable {
         super.finalize();
-        if (buffer != null) {
+        if (buffer != null && buffer.refCnt() > 0) {
             buffer.release();
-        }
-        if (dataBuffer != null) {
-            dataBuffer.release();
         }
     }
 }
