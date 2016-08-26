@@ -94,6 +94,7 @@ public class ServerConnectHandler extends ChannelInboundHandlerAdapter {
                     .channel(NioSocketChannel.class)
                     .handler(new RelayHandler(ctx.channel()))
                     .option(ChannelOption.SO_KEEPALIVE, true)
+                    .option(ChannelOption.AUTO_READ,false)
                     .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000);
             if (context.isDebug())
                 logger.debug("connecting to {}:{}", address.getHostAddress(), port);
