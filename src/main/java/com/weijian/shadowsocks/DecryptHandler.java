@@ -42,7 +42,7 @@ public class DecryptHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         assert msg instanceof ByteBuf;
         ByteBuf request = (ByteBuf) msg;
-        if (ivIndex < cipherInfo.getIvSize()) {
+        if (init && ivIndex < cipherInfo.getIvSize()) {
             if (iv == null) {
                 iv = new byte[cipherInfo.getIvSize()];
             }
@@ -57,7 +57,7 @@ public class DecryptHandler extends ChannelInboundHandlerAdapter {
                 ctx.read();
                 return;
             }
-        } else if (cipherInfo.getIvSize() == 0) {
+        } else if (init && cipherInfo.getIvSize() == 0) {
             iv = new byte[0];
             cipher.init(Cipher.DECRYPT, configuration.getKey(), iv);
         }
